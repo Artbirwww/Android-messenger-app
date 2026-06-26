@@ -16,3 +16,7 @@ local.properties
 google-services.json
 app/google-services.json
 all_code.txt
+functions/node_modules/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
