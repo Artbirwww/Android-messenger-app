@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Мессенджер</string>
+    <string name="login_title">Вход в аккаунт</string>
+    <string name="register_title">Регистрация</string>
+    <string name="email_hint">Электронная почта</string>
+    <string name="password_hint">Пароль</string>
+    <string name="repeat_password_hint">Повторите пароль</string>
+    <string name="phone_hint">Номер телефона</string>
+    <string name="name_hint">Ваше имя</string>
+    <string name="btn_login">Войти</string>
+    <string name="btn_register">Зарегистрироваться</string>
+    <string name="goto_reg">Нет аккаунта? Зарегистрироваться</string>
+    <string name="goto_login">Уже есть аккаунт? Войти</string>
+    <string name="send_hint">Введите сообщение...</string>
+    <string name="settings">Настройки</string>
+    <string name="profile">Профиль</string>
+</resources>

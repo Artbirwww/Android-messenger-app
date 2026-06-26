@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Messenger</string>
+    <string name="login_title">Sign In</string>
+    <string name="register_title">Registration</string>
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Password</string>
+    <string name="repeat_password_hint">Repeat Password</string>
+    <string name="phone_hint">Phone Number</string>
+    <string name="name_hint">Your Name</string>
+    <string name="btn_login">Login</string>
+    <string name="btn_register">Register</string>
+    <string name="goto_reg">Don\'t have an account? Sign up</string>
+    <string name="goto_login">Already have an account? Log in</string>
+    <string name="send_hint">Write a message...</string>
+    <string name="settings">Settings</string>
+    <string name="profile">Profile</string>
+</resources>
