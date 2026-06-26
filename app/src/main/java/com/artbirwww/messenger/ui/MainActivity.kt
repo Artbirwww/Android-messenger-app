@@ -25,8 +25,10 @@ import com.artbirwww.messenger.ui.screens.login.LoginScreen
 import com.artbirwww.messenger.ui.screens.profile.ProfileScreen
 import com.artbirwww.messenger.ui.screens.register.RegisterScreen
 import com.artbirwww.messenger.ui.theme.MessengerTheme
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class MainActivity : ComponentActivity() {
     
@@ -123,6 +125,21 @@ class MainActivity : ComponentActivity() {
         
         // Start listening for messages globally for notifications
         startGlobalMessageListener()
+        
+        // Update FCM Token
+        updateFcmToken()
+    }
+    
+    private fun updateFcmToken() {
+        val currentUser = AuthRepository.getCurrentUser() ?: return
+        lifecycleScope.launch {
+            try {
+                val token = com.google.firebase.messaging.FirebaseMessaging.getInstance().token.await() as String
+                AuthRepository.updateFcmToken(currentUser.uid, token)
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
     }
     
     private fun startGlobalMessageListener() {

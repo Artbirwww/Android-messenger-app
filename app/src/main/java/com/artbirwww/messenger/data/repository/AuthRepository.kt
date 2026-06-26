@@ -50,6 +50,14 @@ object AuthRepository {
         }
     }
 
+    suspend fun updateFcmToken(uid: String, token: String) {
+        try {
+            db.collection("users").document(uid).update("fcmToken", token).await()
+        } catch (e: Exception) {
+            // Log error
+        }
+    }
+
     suspend fun searchUsers(query: String): List<User> {
         return try {
             db.collection("users")
