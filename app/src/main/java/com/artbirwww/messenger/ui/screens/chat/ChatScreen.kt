@@ -1,5 +1,6 @@
 package com.artbirwww.messenger.ui.screens.chat
 
+import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +62,22 @@ fun ChatScreen(
     var showBgMenu by remember { mutableStateOf(false) }
     var showRecipientProfile by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
+        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
+        if (audioGranted && cameraGranted) {
+            // Permissions granted
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(arrayOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.CAMERA
+        ))
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -328,26 +346,59 @@ fun ChatScreen(
                     Icon(imageVector = Icons.Default.Add, contentDescription = "Attach")
                 }
                 
+                IconButton(onClick = { viewModel.isRecordingVideo.value = true }) {
+                    Icon(imageVector = Icons.Default.RadioButtonChecked, contentDescription = "Video Message", tint = Color.Red)
+                }
+
                 OutlinedTextField(
                     value = viewModel.typedMessage.value,
                     onValueChange = { viewModel.typedMessage.value = it },
-                    placeholder = { Text(stringResource(id = R.string.send_hint)) },
+                    placeholder = { 
+                        Text(if (viewModel.isRecordingAudio.value) "Запись аудио..." else stringResource(id = R.string.send_hint)) 
+                    },
                     modifier = Modifier.weight(1f),
                     maxLines = 4,
-                    shape = RoundedCornerShape(24.dp)
+                    shape = RoundedCornerShape(24.dp),
+                    enabled = !viewModel.isRecordingAudio.value
                 )
                 
-                IconButton(
-                    onClick = { viewModel.sendMessage() },
-                    enabled = viewModel.typedMessage.value.isNotBlank() || viewModel.isUploading.value
-                ) {
-                    if (viewModel.isUploading.value) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(imageVector = Icons.Default.Send, contentDescription = "Send")
+                if (viewModel.typedMessage.value.isEmpty() && !viewModel.isUploading.value) {
+                    IconButton(onClick = {
+                        if (viewModel.isRecordingAudio.value) {
+                            viewModel.stopAudioRecording()
+                        } else {
+                            viewModel.startAudioRecording()
+                        }
+                    }) {
+                        Icon(
+                            imageVector = if (viewModel.isRecordingAudio.value) Icons.Default.Stop else Icons.Default.Mic,
+                            contentDescription = "Audio Message",
+                            tint = if (viewModel.isRecordingAudio.value) Color.Red else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = { viewModel.sendMessage() },
+                        enabled = viewModel.typedMessage.value.isNotBlank() || viewModel.isUploading.value
+                    ) {
+                        if (viewModel.isUploading.value) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(imageVector = Icons.Default.Send, contentDescription = "Send")
+                        }
                     }
                 }
             }
+        }
+
+        if (viewModel.isRecordingVideo.value) {
+            com.artbirwww.messenger.ui.components.VideoMessageRecorder(
+                onVideoRecorded = { file ->
+                    viewModel.sendVideoMessage(file)
+                    viewModel.isRecordingVideo.value = false
+                },
+                onCancel = { viewModel.isRecordingVideo.value = false }
+            )
         }
     }
 }

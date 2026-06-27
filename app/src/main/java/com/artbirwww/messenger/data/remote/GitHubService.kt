@@ -65,6 +65,8 @@ object GitHubService {
             val path = when (type) {
                 "avatar" -> "avatars/$userId/${timestamp}_${uniqueId}_$safeName"
                 "chat" -> "chats/$chatId/${timestamp}_${uniqueId}_$safeName"
+                "audio" -> "audio/$chatId/${timestamp}_${uniqueId}_$safeName"
+                "video" -> "video/$chatId/${timestamp}_${uniqueId}_$safeName"
                 else -> "files/$userId/${timestamp}_${uniqueId}_$safeName"
             }
 

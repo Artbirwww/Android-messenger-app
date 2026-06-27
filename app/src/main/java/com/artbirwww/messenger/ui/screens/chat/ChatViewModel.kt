@@ -1,7 +1,8 @@
 package com.artbirwww.messenger.ui.screens.chat
 
+import android.app.Application
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.artbirwww.messenger.data.model.Message
 import com.artbirwww.messenger.data.model.ReplyTo
@@ -13,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
-class ChatViewModel : ViewModel() {
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _allMessages = MutableStateFlow<List<Message>>(emptyList())
     val searchQuery = MutableStateFlow("")
     val chatBackground = MutableStateFlow<com.artbirwww.messenger.data.model.ChatBackground?>(null)
@@ -38,6 +39,13 @@ class ChatViewModel : ViewModel() {
     var editingMessage = mutableStateOf<Message?>(null)
     var isUploading = mutableStateOf(false)
     
+    // Recording States
+    var isRecordingAudio = mutableStateOf(false)
+    var isRecordingVideo = mutableStateOf(false)
+    private var audioFile: java.io.File? = null
+    
+    private val audioRecorder by lazy { com.artbirwww.messenger.data.remote.AudioRecorder(application) }
+
     // Selection Mode
     var selectionMode = mutableStateOf(false)
     var selectedMessages = mutableStateOf(setOf<String>())
@@ -60,6 +68,70 @@ class ChatViewModel : ViewModel() {
         viewModelScope.launch {
             if (otherUserId.isNotEmpty()) {
                 otherUser.value = AuthRepository.getUserProfile(otherUserId)
+            }
+        }
+    }
+
+    fun startAudioRecording() {
+        val file = java.io.File(getApplication<Application>().cacheDir, "audio_msg_${System.currentTimeMillis()}.m4a")
+        audioFile = file
+        audioRecorder.start(file)
+        isRecordingAudio.value = true
+    }
+
+    fun stopAudioRecording() {
+        audioRecorder.stop()
+        isRecordingAudio.value = false
+        audioFile?.let { file ->
+            uploadAndSendAudio(file)
+        }
+    }
+
+    private fun uploadAndSendAudio(file: java.io.File) {
+        viewModelScope.launch {
+            isUploading.value = true
+            val bytes = file.readBytes()
+            val url = com.artbirwww.messenger.data.remote.GitHubService.uploadFile(
+                bytes, file.name, "chat", currentUserId, currentChatId
+            )
+            isUploading.value = false
+            if (url != null) {
+                sendAudioMessage(url)
+            }
+        }
+    }
+
+    fun sendAudioMessage(url: String) {
+        viewModelScope.launch {
+            val msg = Message(
+                fromId = currentUserId,
+                toId = otherUserId,
+                text = "",
+                timestamp = System.currentTimeMillis(),
+                audioUrl = url
+            )
+            ChatRepository.sendMessage(currentChatId, msg)
+        }
+    }
+
+    fun sendVideoMessage(file: java.io.File) {
+        viewModelScope.launch {
+            isUploading.value = true
+            val bytes = file.readBytes()
+            val url = com.artbirwww.messenger.data.remote.GitHubService.uploadFile(
+                bytes, file.name, "chat", currentUserId, currentChatId
+            )
+            isUploading.value = false
+            if (url != null) {
+                val msg = Message(
+                    fromId = currentUserId,
+                    toId = otherUserId,
+                    text = "",
+                    timestamp = System.currentTimeMillis(),
+                    videoUrl = url,
+                    isVideoMessage = true
+                )
+                ChatRepository.sendMessage(currentChatId, msg)
             }
         }
     }
@@ -104,21 +176,6 @@ class ChatViewModel : ViewModel() {
                 replyTo = reply
             )
             ChatRepository.sendMessage(currentChatId, msg)
-
-            // Direct PUSH Trigger
-            launch {
-                val recipientToken = AuthRepository.getFcmToken(otherUserId)
-                if (!recipientToken.isNullOrEmpty()) {
-                    val senderProfile = AuthRepository.getUserProfile(currentUserId)
-                    val senderName = senderProfile?.name ?: "Новое сообщение"
-                    com.artbirwww.messenger.data.remote.FCMClient.sendPush(
-                        token = recipientToken,
-                        title = senderName,
-                        message = text.ifEmpty { if (imageUrl != null) "📷 Фото" else "📎 Файл" },
-                        chatId = currentChatId
-                    )
-                }
-            }
 
             typedMessage.value = ""
             replyingTo.value = null

@@ -155,6 +155,16 @@ fun MessageBubble(
                 }
             }
 
+            // Audio Message
+            if (!message.audioUrl.isNullOrEmpty()) {
+                AudioPlayer(url = message.audioUrl)
+            }
+
+            // Video Message
+            if (message.isVideoMessage && !message.videoUrl.isNullOrEmpty()) {
+                VideoCirclePlayer(url = message.videoUrl)
+            }
+
             if (message.text.isNotEmpty()) {
                 val annotatedText = buildAnnotatedString {
                     val text = message.text

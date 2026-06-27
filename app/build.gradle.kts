@@ -91,6 +91,19 @@ dependencies {
     // Загрузка изображений (Аналог тегов img и аватарок)
     implementation("io.coil-kt:coil-compose:2.5.0")
 
+    // Media3 (ExoPlayer) for Video and Audio
+    val media3Version = "1.2.1"
+    implementation("androidx.media3:media3-exoplayer:$media3Version")
+    implementation("androidx.media3:media3-ui:$media3Version")
+    implementation("androidx.media3:media3-common:$media3Version")
+
+    // CameraX for Video Recording
+    val cameraVersion = "1.3.1"
+    implementation("androidx.camera:camera-camera2:$cameraVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraVersion")
+    implementation("androidx.camera:camera-view:$cameraVersion")
+    implementation("androidx.camera:camera-video:$cameraVersion")
+
     // Локальное хранилище (Замена Settings Store)
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 

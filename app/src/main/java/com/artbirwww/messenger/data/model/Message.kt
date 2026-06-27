@@ -13,6 +13,10 @@ data class Message(
     val fileType: String? = null,
     val fileSize: Long? = null,
     val files: List<AttachmentFile>? = null,
+    val audioUrl: String? = null,
+    val audioDuration: Long? = null,
+    val videoUrl: String? = null,
+    val isVideoMessage: Boolean = false,
     val editedAt: Long? = null,
     val replyTo: ReplyTo? = null,
     val reactions: Map<String, Long> = emptyMap()
