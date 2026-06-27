@@ -23,6 +23,7 @@ import com.artbirwww.messenger.ui.components.UserAvatar
 @Composable
 fun ContactsScreen(
     onContactSelected: (String, String, String) -> Unit, // chatId, otherUserId, otherUserName
+    onNavigateToRoute: (String) -> Unit,
     onBack: () -> Unit,
     viewModel: ContactsViewModel = viewModel()
 ) {
@@ -50,6 +51,12 @@ fun ContactsScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
+            )
+        },
+        bottomBar = {
+            com.artbirwww.messenger.ui.components.MessengerBottomBar(
+                currentRoute = "contacts",
+                onNavigate = onNavigateToRoute
             )
         }
     ) { paddingValues ->

@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -51,6 +52,16 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     val startDestination = if (AuthRepository.getCurrentUser() != null) "chat_list" else "login"
 
+                    val navigateToTopLevel = { route: String ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+
                     NavHost(navController = navController, startDestination = startDestination) {
                         composable("login") {
                             LoginScreen(
@@ -81,12 +92,7 @@ class MainActivity : ComponentActivity() {
                                 onChatSelected = { chatId, otherUserId, otherUserName ->
                                     navController.navigate("chat/$chatId/$otherUserId")
                                 },
-                                onNavigateToProfile = {
-                                    navController.navigate("profile")
-                                },
-                                onNavigateToContacts = {
-                                    navController.navigate("contacts")
-                                }
+                                onNavigateToRoute = navigateToTopLevel
                             )
                         }
                         composable("contacts") {
@@ -94,6 +100,7 @@ class MainActivity : ComponentActivity() {
                                 onContactSelected = { chatId, otherUserId, otherUserName ->
                                     navController.navigate("chat/$chatId/$otherUserId")
                                 },
+                                onNavigateToRoute = navigateToTopLevel,
                                 onBack = {
                                     navController.popBackStack()
                                 }
@@ -125,38 +132,12 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("login") {
                                         popUpTo(0) { inclusive = true }
                                     }
-                                }
+                                },
+                                onNavigateToRoute = navigateToTopLevel
                             )
                         }
                     }
                 }
-            }
-        }
-        
-        // Update FCM Token
-        updateFcmToken()
-        
-        // Start Background Service for free notifications
-        startMessengerBackgroundService()
-    }
-
-    private fun startMessengerBackgroundService() {
-        val intent = android.content.Intent(this, com.artbirwww.messenger.data.remote.MessengerBackgroundService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-    }
-    
-    private fun updateFcmToken() {
-        val currentUser = AuthRepository.getCurrentUser() ?: return
-        lifecycleScope.launch {
-            try {
-                val token = FirebaseMessaging.getInstance().token.await()
-                AuthRepository.updateFcmToken(currentUser.uid, token)
-            } catch (e: Exception) {
-                // Handle error
             }
         }
     }

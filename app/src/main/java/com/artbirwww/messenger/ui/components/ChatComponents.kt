@@ -5,19 +5,52 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.artbirwww.messenger.data.model.Message
 import coil.compose.AsyncImage
+
+@Composable
+fun MessengerBottomBar(
+    currentRoute: String,
+    onNavigate: (String) -> Unit
+) {
+    NavigationBar {
+        NavigationBarItem(
+            selected = currentRoute == "contacts",
+            onClick = { onNavigate("contacts") },
+            icon = { Icon(Icons.Default.Person, contentDescription = "Contacts") },
+            label = { Text("Контакты") }
+        )
+        NavigationBarItem(
+            selected = currentRoute == "chat_list",
+            onClick = { onNavigate("chat_list") },
+            icon = { Icon(Icons.Default.Email, contentDescription = "Chats") },
+            label = { Text("Чаты") }
+        )
+        NavigationBarItem(
+            selected = currentRoute == "profile",
+            onClick = { onNavigate("profile") },
+            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+            label = { Text("Настройки") }
+        )
+    }
+}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -25,7 +58,8 @@ fun MessageBubble(
     message: Message,
     currentUserId: String,
     onLongClick: () -> Unit = {},
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    highlightQuery: String = ""
 ) {
     val isOutgoing = message.fromId == currentUserId
     val alignment = if (isOutgoing) Alignment.CenterEnd else Alignment.CenterStart
@@ -79,10 +113,10 @@ fun MessageBubble(
                 }
             }
 
-            // Single Image
-            if (!message.imageUrl.isNullOrEmpty()) {
+            // Multiple Images
+            message.imageUrls?.forEach { url ->
                 AsyncImage(
-                    model = message.imageUrl,
+                    model = url,
                     contentDescription = "Attachment",
                     modifier = Modifier
                         .fillMaxWidth()
@@ -91,11 +125,9 @@ fun MessageBubble(
                         .padding(bottom = 6.dp)
                 )
             }
-
-            // Multiple Images
-            message.imageUrls?.forEach { url ->
+            if (!message.imageUrl.isNullOrEmpty()) {
                 AsyncImage(
-                    model = url,
+                    model = message.imageUrl,
                     contentDescription = "Attachment",
                     modifier = Modifier
                         .fillMaxWidth()
@@ -124,7 +156,27 @@ fun MessageBubble(
             }
 
             if (message.text.isNotEmpty()) {
-                Text(text = message.text, fontSize = 16.sp, color = contentColor)
+                val annotatedText = buildAnnotatedString {
+                    val text = message.text
+                    if (highlightQuery.isNotBlank() && text.contains(highlightQuery, ignoreCase = true)) {
+                        var start = 0
+                        while (start < text.length) {
+                            val index = text.indexOf(highlightQuery, start, ignoreCase = true)
+                            if (index == -1) {
+                                append(text.substring(start))
+                                break
+                            }
+                            append(text.substring(start, index))
+                            withStyle(style = SpanStyle(background = Color.Yellow.copy(alpha = 0.7f), color = Color.Black)) {
+                                append(text.substring(index, index + highlightQuery.length))
+                            }
+                            start = index + highlightQuery.length
+                        }
+                    } else {
+                        append(text)
+                    }
+                }
+                Text(text = annotatedText, fontSize = 16.sp, color = contentColor)
             }
 
             Row(
@@ -141,7 +193,6 @@ fun MessageBubble(
                     )
                 }
                 
-                // Time
                 val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(message.timestamp))
                 Text(
                     text = time,

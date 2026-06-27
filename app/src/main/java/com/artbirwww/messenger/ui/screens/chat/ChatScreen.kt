@@ -3,8 +3,12 @@ package com.artbirwww.messenger.ui.screens.chat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -13,15 +17,25 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.artbirwww.messenger.R
+import com.artbirwww.messenger.data.model.Message
+import com.artbirwww.messenger.data.model.User
 import com.artbirwww.messenger.ui.components.MessageBubble
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import java.io.InputStream
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +58,7 @@ fun ChatScreen(
     val chatBackground by viewModel.chatBackground.collectAsState()
     var isSearchVisible by remember { mutableStateOf(false) }
     var showBgMenu by remember { mutableStateOf(false) }
+    var showRecipientProfile by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -62,7 +77,21 @@ fun ChatScreen(
 
     Scaffold(
         topBar = {
-            if (isSearchVisible) {
+            if (viewModel.selectionMode.value) {
+                TopAppBar(
+                    title = { Text("${viewModel.selectedMessages.value.size} выбрано") },
+                    navigationIcon = {
+                        IconButton(onClick = { viewModel.cancelEditOrReply() }) {
+                            Icon(Icons.Default.Close, contentDescription = "Cancel")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.deleteSelectedMessages() }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                )
+            } else if (isSearchVisible) {
                 TopAppBar(
                     title = {
                         OutlinedTextField(
@@ -84,7 +113,29 @@ fun ChatScreen(
                 )
             } else {
                 TopAppBar(
-                    title = { Text(stringResource(id = R.string.app_name)) },
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable { showRecipientProfile = true }
+                        ) {
+                            com.artbirwww.messenger.ui.components.UserAvatar(
+                                photoURL = viewModel.otherUser.value?.photoURL,
+                                modifier = Modifier.size(32.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = viewModel.otherUser.value?.name ?: "Чат",
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                Text(
+                                    text = viewModel.otherUser.value?.email ?: "",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
                             Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
@@ -96,7 +147,7 @@ fun ChatScreen(
                         }
                         Box {
                             IconButton(onClick = { showBgMenu = true }) {
-                                Icon(imageVector = Icons.Default.Settings, contentDescription = "Background") // Proxy for Bg
+                                Icon(imageVector = Icons.Default.Settings, contentDescription = "Background") 
                             }
                             DropdownMenu(
                                 expanded = showBgMenu,
@@ -128,6 +179,14 @@ fun ChatScreen(
             }
         }
     ) { paddingValues ->
+        if (showRecipientProfile && viewModel.otherUser.value != null) {
+            RecipientProfileDialog(
+                user = viewModel.otherUser.value!!,
+                messages = messagesState.value,
+                onDismiss = { showRecipientProfile = false }
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -145,7 +204,6 @@ fun ChatScreen(
                     }
                 )
         ) {
-            // Исправлено: weight(1f) заставляет список заполнить всё пространство
             LazyColumn(
                 modifier = Modifier
                     .weight(1f)
@@ -154,44 +212,77 @@ fun ChatScreen(
             ) {
                 items(messagesState.value) { message ->
                     var showMenu by remember { mutableStateOf(false) }
+                    val isSelected = viewModel.selectedMessages.value.contains(message.id)
 
-                    Box {
-                        MessageBubble(
-                            message = message,
-                            currentUserId = viewModel.currentUserId,
-                            onLongClick = { showMenu = true }
-                        )
-
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Ответить") },
-                                onClick = {
-                                    viewModel.replyingTo.value = message
-                                    showMenu = false
-                                },
-                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) } // Share used as proxy for reply
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (viewModel.selectionMode.value) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { viewModel.toggleSelection(message.id) },
+                                modifier = Modifier.padding(start = 8.dp)
                             )
-                            if (message.fromId == viewModel.currentUserId) {
+                        }
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            MessageBubble(
+                                message = message,
+                                currentUserId = viewModel.currentUserId,
+                                highlightQuery = searchQuery,
+                                onLongClick = { 
+                                    if (!viewModel.selectionMode.value) {
+                                        showMenu = true 
+                                    }
+                                },
+                                onClick = {
+                                    if (viewModel.selectionMode.value) {
+                                        viewModel.toggleSelection(message.id)
+                                    }
+                                }
+                            )
+
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
                                 DropdownMenuItem(
-                                    text = { Text("Редактировать") },
+                                    text = { Text("Ответить") },
                                     onClick = {
-                                        viewModel.startEditing(message)
+                                        viewModel.replyingTo.value = message
                                         showMenu = false
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Выбрать") },
+                                    onClick = {
+                                        viewModel.selectionMode.value = true
+                                        viewModel.toggleSelection(message.id)
+                                        showMenu = false
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) }
+                                )
+                                if (message.fromId == viewModel.currentUserId) {
+                                    DropdownMenuItem(
+                                        text = { Text("Редактировать") },
+                                        onClick = {
+                                            viewModel.startEditing(message)
+                                            showMenu = false
+                                        },
+                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                                    )
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("Удалить") },
+                                    onClick = {
+                                        viewModel.deleteMessage(message.id)
+                                        showMenu = false
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
                                 )
                             }
-                            DropdownMenuItem(
-                                text = { Text("Удалить") },
-                                onClick = {
-                                    viewModel.deleteMessage(message.id)
-                                    showMenu = false
-                                },
-                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
-                            )
                         }
                     }
                 }
@@ -258,5 +349,133 @@ fun ChatScreen(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RecipientProfileDialog(
+    user: User,
+    messages: List<Message>,
+    onDismiss: () -> Unit
+) {
+    var activeTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Инфо", "Изображения", "Файлы")
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TopAppBar(
+                    title = { Text("Профиль пользователя") },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close")
+                        }
+                    }
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    com.artbirwww.messenger.ui.components.UserAvatar(
+                        photoURL = user.photoURL,
+                        modifier = Modifier.size(100.dp)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(text = user.name, style = MaterialTheme.typography.headlineSmall)
+                    Text(text = user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                TabRow(selectedTabIndex = activeTab) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = activeTab == index,
+                            onClick = { activeTab = index },
+                            text = { Text(title) }
+                        )
+                    }
+                }
+
+                Box(modifier = Modifier.weight(1f).padding(16.dp)) {
+                    when (activeTab) {
+                        0 -> { // Info
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                ProfileInfoRow("Телефон", user.phone.ifEmpty { "Не указан" })
+                                ProfileInfoRow("Био", user.bio.ifEmpty { "—" })
+                                ProfileInfoRow("Пол", when(user.gender) {
+                                    "male" -> "Мужской"
+                                    "female" -> "Женский"
+                                    "other" -> "Другой"
+                                    else -> "Не указан"
+                                })
+                            }
+                        }
+                        1 -> { // Images
+                            val images = messages.flatMap { it.imageUrls ?: emptyList() } + 
+                                         messages.mapNotNull { it.imageUrl }
+                            
+                            if (images.isEmpty()) {
+                                Text("Нет изображений", modifier = Modifier.align(Alignment.Center))
+                            } else {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(3),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(images.distinct()) { url ->
+                                        AsyncImage(
+                                            model = url,
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.aspectRatio(1f).clip(RoundedCornerShape(8.dp))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        2 -> { // Files
+                            val files = messages.flatMap { it.files ?: emptyList() } +
+                                        messages.mapNotNull { msg -> 
+                                            if (msg.fileUrl != null && msg.fileName != null) {
+                                                com.artbirwww.messenger.data.model.AttachmentFile(msg.fileUrl, msg.fileName, msg.fileType ?: "", msg.fileSize ?: 0)
+                                            } else null
+                                        }
+                            
+                            if (files.isEmpty()) {
+                                Text("Нет файлов", modifier = Modifier.align(Alignment.Center))
+                            } else {
+                                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    items(files.distinctBy { it.url }) { file ->
+                                        ListItem(
+                                            headlineContent = { Text(file.name) },
+                                            supportingContent = { Text("${file.size / 1024} KB") },
+                                            leadingContent = { Text("📎", fontSize = 24.sp) }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileInfoRow(label: String, value: String) {
+    Column {
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        Text(text = value, style = MaterialTheme.typography.bodyLarge)
+        Divider(modifier = Modifier.padding(top = 4.dp), thickness = 0.5.dp)
     }
 }

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.artbirwww.messenger.data.model.Message
 import com.artbirwww.messenger.data.model.ReplyTo
+import com.artbirwww.messenger.data.model.User
 import com.artbirwww.messenger.data.repository.AuthRepository
 import com.artbirwww.messenger.data.repository.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,11 +14,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class ChatViewModel : ViewModel() {
-    private val _messages = MutableStateFlow<List<Message>>(emptyList())
+    private val _allMessages = MutableStateFlow<List<Message>>(emptyList())
     val searchQuery = MutableStateFlow("")
     val chatBackground = MutableStateFlow<com.artbirwww.messenger.data.model.ChatBackground?>(null)
     
-    val messages: StateFlow<List<Message>> = combine(_messages, searchQuery) { msgs, query ->
+    val messages: StateFlow<List<Message>> = combine(_allMessages, searchQuery) { msgs, query ->
         if (query.isBlank()) msgs
         else msgs.filter { it.text.contains(query, ignoreCase = true) }
     }.let { flow ->
@@ -29,29 +30,36 @@ class ChatViewModel : ViewModel() {
     }
 
     var currentChatId = "general_chat"
-    var otherUserId = "" // To be set when opening chat
+    var otherUserId = "" 
+    var otherUser = mutableStateOf<User?>(null)
+    
     var typedMessage = mutableStateOf("")
     var replyingTo = mutableStateOf<Message?>(null)
     var editingMessage = mutableStateOf<Message?>(null)
     var isUploading = mutableStateOf(false)
+    
+    // Selection Mode
+    var selectionMode = mutableStateOf(false)
+    var selectedMessages = mutableStateOf(setOf<String>())
 
     val currentUserId: String
         get() = AuthRepository.getCurrentUser()?.uid ?: ""
-
-    init {
-        // We will call loadMessages manually when chatId is set
-    }
 
     fun loadMessages() {
         viewModelScope.launch {
             ChatRepository.joinChat(currentChatId, currentUserId)
             ChatRepository.getMessages(currentChatId).collect {
-                _messages.value = it
+                _allMessages.value = it
             }
         }
         viewModelScope.launch {
             ChatRepository.listenChatBackground(currentChatId).collect {
                 chatBackground.value = it
+            }
+        }
+        viewModelScope.launch {
+            if (otherUserId.isNotEmpty()) {
+                otherUser.value = AuthRepository.getUserProfile(otherUserId)
             }
         }
     }
@@ -79,7 +87,7 @@ class ChatViewModel : ViewModel() {
                     messageId = it.id,
                     text = it.text,
                     fromId = it.fromId,
-                    fromName = null // Can be fetched if needed
+                    fromName = otherUser.value?.name ?: "User"
                 )
             }
             
@@ -97,7 +105,7 @@ class ChatViewModel : ViewModel() {
             )
             ChatRepository.sendMessage(currentChatId, msg)
 
-            // Direct PUSH Trigger (Client-Side)
+            // Direct PUSH Trigger
             launch {
                 val recipientToken = AuthRepository.getFcmToken(otherUserId)
                 if (!recipientToken.isNullOrEmpty()) {
@@ -106,7 +114,7 @@ class ChatViewModel : ViewModel() {
                     com.artbirwww.messenger.data.remote.FCMClient.sendPush(
                         token = recipientToken,
                         title = senderName,
-                        message = text.ifEmpty { "Вложение" },
+                        message = text.ifEmpty { if (imageUrl != null) "📷 Фото" else "📎 Файл" },
                         chatId = currentChatId
                     )
                 }
@@ -134,6 +142,28 @@ class ChatViewModel : ViewModel() {
         }
     }
 
+    fun toggleSelection(messageId: String) {
+        val current = selectedMessages.value
+        if (current.contains(messageId)) {
+            selectedMessages.value = current - messageId
+        } else {
+            selectedMessages.value = current + messageId
+        }
+        if (selectedMessages.value.isEmpty()) {
+            selectionMode.value = false
+        }
+    }
+
+    fun deleteSelectedMessages() {
+        viewModelScope.launch {
+            selectedMessages.value.forEach { id ->
+                ChatRepository.deleteMessage(currentChatId, id)
+            }
+            selectedMessages.value = emptySet()
+            selectionMode.value = false
+        }
+    }
+
     fun deleteMessage(messageId: String) {
         viewModelScope.launch {
             ChatRepository.deleteMessage(currentChatId, messageId)
@@ -149,6 +179,8 @@ class ChatViewModel : ViewModel() {
         editingMessage.value = null
         replyingTo.value = null
         typedMessage.value = ""
+        selectionMode.value = false
+        selectedMessages.value = emptySet()
     }
 
     fun addReaction(messageId: String, emoji: String) {

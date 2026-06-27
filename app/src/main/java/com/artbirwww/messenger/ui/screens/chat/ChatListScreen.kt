@@ -21,8 +21,7 @@ import com.artbirwww.messenger.ui.components.UserAvatar
 @Composable
 fun ChatListScreen(
     onChatSelected: (String, String, String) -> Unit, // chatId, otherUserId, otherUserName
-    onNavigateToProfile: () -> Unit,
-    onNavigateToContacts: () -> Unit,
+    onNavigateToRoute: (String) -> Unit,
     viewModel: ChatListViewModel = viewModel()
 ) {
     val chatsState = viewModel.chats.collectAsState()
@@ -30,15 +29,13 @@ fun ChatListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Чаты") },
-                actions = {
-                    IconButton(onClick = onNavigateToContacts) {
-                        Icon(imageVector = Icons.Default.Call, contentDescription = "Contacts") // Proxy for Contacts
-                    }
-                    IconButton(onClick = onNavigateToProfile) {
-                        Icon(imageVector = Icons.Default.Person, contentDescription = "Profile")
-                    }
-                }
+                title = { Text("Чаты") }
+            )
+        },
+        bottomBar = {
+            com.artbirwww.messenger.ui.components.MessengerBottomBar(
+                currentRoute = "chat_list",
+                onNavigate = onNavigateToRoute
             )
         }
     ) { paddingValues ->
