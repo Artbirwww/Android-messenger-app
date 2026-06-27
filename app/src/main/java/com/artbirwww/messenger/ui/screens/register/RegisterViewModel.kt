@@ -32,10 +32,12 @@ class RegisterViewModel : ViewModel() {
 
         isLoading.value = true
         viewModelScope.launch {
-            // Normalize phone: keep only digits, handle leading 8 -> 7
-            var normalizedPhone = phone.value.replace(Regex("[^\\d]"), "")
+            // Normalize phone: keep digits and +, handle leading 8 -> +7
+            var normalizedPhone = phone.value.replace(Regex("[^\\d+]"), "")
             if (normalizedPhone.startsWith("8") && normalizedPhone.length == 11) {
-                normalizedPhone = "7" + normalizedPhone.substring(1)
+                normalizedPhone = "+7" + normalizedPhone.substring(1)
+            } else if (normalizedPhone.startsWith("7") && normalizedPhone.length == 11) {
+                normalizedPhone = "+$normalizedPhone"
             }
 
             val newUser = User(

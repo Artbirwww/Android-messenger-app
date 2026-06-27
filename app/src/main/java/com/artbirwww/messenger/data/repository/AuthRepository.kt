@@ -82,10 +82,26 @@ object AuthRepository {
 
     suspend fun getUsersByPhones(phones: List<String>): List<User> {
         if (phones.isEmpty()) return emptyList()
+        
+        // Создаем варианты для поиска на основе "чистых" цифр: 
+        // 1. Как есть (7983...)
+        // 2. С плюсом (+7983...)
+        // 3. Без кода страны (983...)
+        // 4. С префиксом 8 (8983...)
+        val searchVariants = phones.flatMap { 
+            val variants = mutableListOf(it, "+$it")
+            if (it.length >= 10) {
+                val tenDigits = it.takeLast(10)
+                variants.add(tenDigits)
+                variants.add("+7$tenDigits")
+                variants.add("8$tenDigits")
+                variants.add("7$tenDigits")
+            }
+            variants
+        }.distinct()
+
         return try {
-            // Firestore 'whereIn' supports up to 30 items.
-            // For a larger list, we should chunk it.
-            phones.chunked(30).flatMap { chunk ->
+            searchVariants.chunked(30).flatMap { chunk ->
                 db.collection("users")
                     .whereIn("phone", chunk)
                     .get()
