@@ -1,12 +1,16 @@
 package com.artbirwww.messenger.ui
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,12 +23,25 @@ import com.artbirwww.messenger.ui.screens.login.LoginScreen
 import com.artbirwww.messenger.ui.screens.profile.ProfileScreen
 import com.artbirwww.messenger.ui.screens.register.RegisterScreen
 import com.artbirwww.messenger.ui.theme.MessengerTheme
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class MainActivity : ComponentActivity() {
     
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        // Permission handled
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
         setContent {
             MessengerTheme {
                 Surface(
@@ -100,6 +117,21 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
+        }
+        
+        // Update FCM Token
+        updateFcmToken()
+    }
+    
+    private fun updateFcmToken() {
+        val currentUser = AuthRepository.getCurrentUser() ?: return
+        lifecycleScope.launch {
+            try {
+                val token = FirebaseMessaging.getInstance().token.await()
+                AuthRepository.updateFcmToken(currentUser.uid, token)
+            } catch (e: Exception) {
+                // Handle error
             }
         }
     }
