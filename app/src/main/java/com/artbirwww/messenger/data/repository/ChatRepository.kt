@@ -29,18 +29,17 @@ object ChatRepository {
     }
 
     fun getChats(userId: String): Flow<List<Chat>> = callbackFlow {
-        // In this implementation, we assume a "chats" collection where 
-        // documents have a "participantIds" array.
         val listener = db.collection("chats")
             .whereArrayContains("participantIds", userId)
-            .orderBy("lastMessageTime", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e("ChatRepository", "Listen failed", error)
                     return@addSnapshotListener
                 }
-                val chats = snapshot?.toObjects(Chat::class.java) ?: emptyList()
-                trySend(chats)
+                val chats = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(Chat::class.java)?.copy(id = doc.id)
+                } ?: emptyList()
+                trySend(chats.sortedByDescending { it.lastMessageTime })
             }
         awaitClose { listener.remove() }
     }
@@ -59,6 +58,7 @@ object ChatRepository {
                     "lastMessageTime" to message.timestamp,
                     "lastSenderId" to message.fromId,
                     "participantIds" to listOf(message.fromId, message.toId),
+                    "messageCount" to com.google.firebase.firestore.FieldValue.increment(1),
                     "updatedAt" to System.currentTimeMillis()
                 ),
                 com.google.firebase.firestore.SetOptions.merge()

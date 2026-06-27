@@ -79,7 +79,6 @@ dependencies {
     implementation("com.google.firebase:firebase-auth-ktx")
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
-    implementation("com.google.firebase:firebase-messaging-ktx")
 
     // Сеть (Retrofit & OkHttp) для работы с GitHub API и Cloudinary
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

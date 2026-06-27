@@ -11,6 +11,5 @@ data class User(
     val birthday: String = "",
     val bio: String = "",
     val gender: String = "unspecified",
-    val fcmToken: String = "",
     val createdAt: Long = 0L
 )
