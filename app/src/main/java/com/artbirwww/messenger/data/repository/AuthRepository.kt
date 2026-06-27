@@ -80,6 +80,23 @@ object AuthRepository {
         }
     }
 
+    suspend fun getUsersByPhones(phones: List<String>): List<User> {
+        if (phones.isEmpty()) return emptyList()
+        return try {
+            // Firestore 'whereIn' supports up to 30 items.
+            // For a larger list, we should chunk it.
+            phones.chunked(30).flatMap { chunk ->
+                db.collection("users")
+                    .whereIn("phone", chunk)
+                    .get()
+                    .await()
+                    .toObjects(User::class.java)
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     fun signOut() {
         auth.signOut()
     }

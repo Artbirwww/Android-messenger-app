@@ -5,8 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -23,6 +22,7 @@ import com.artbirwww.messenger.ui.components.UserAvatar
 fun ChatListScreen(
     onChatSelected: (String, String, String) -> Unit, // chatId, otherUserId, otherUserName
     onNavigateToProfile: () -> Unit,
+    onNavigateToContacts: () -> Unit,
     viewModel: ChatListViewModel = viewModel()
 ) {
     val chatsState = viewModel.chats.collectAsState()
@@ -32,6 +32,9 @@ fun ChatListScreen(
             TopAppBar(
                 title = { Text("Чаты") },
                 actions = {
+                    IconButton(onClick = onNavigateToContacts) {
+                        Icon(imageVector = Icons.Default.Call, contentDescription = "Contacts") // Proxy for Contacts
+                    }
                     IconButton(onClick = onNavigateToProfile) {
                         Icon(imageVector = Icons.Default.Person, contentDescription = "Profile")
                     }

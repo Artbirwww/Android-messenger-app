@@ -83,6 +83,19 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToProfile = {
                                     navController.navigate("profile")
+                                },
+                                onNavigateToContacts = {
+                                    navController.navigate("contacts")
+                                }
+                            )
+                        }
+                        composable("contacts") {
+                            com.artbirwww.messenger.ui.screens.chat.ContactsScreen(
+                                onContactSelected = { chatId, otherUserId, otherUserName ->
+                                    navController.navigate("chat/$chatId/$otherUserId")
+                                },
+                                onBack = {
+                                    navController.popBackStack()
                                 }
                             )
                         }

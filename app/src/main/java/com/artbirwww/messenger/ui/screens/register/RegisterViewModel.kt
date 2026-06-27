@@ -32,12 +32,18 @@ class RegisterViewModel : ViewModel() {
 
         isLoading.value = true
         viewModelScope.launch {
+            // Normalize phone: keep only digits, handle leading 8 -> 7
+            var normalizedPhone = phone.value.replace(Regex("[^\\d]"), "")
+            if (normalizedPhone.startsWith("8") && normalizedPhone.length == 11) {
+                normalizedPhone = "7" + normalizedPhone.substring(1)
+            }
+
             val newUser = User(
                 firstName = firstName.value,
                 lastName = lastName.value,
                 name = "${firstName.value} ${lastName.value}".trim(),
                 email = email.value,
-                phone = phone.value,
+                phone = normalizedPhone,
                 gender = gender.value
             )
 
