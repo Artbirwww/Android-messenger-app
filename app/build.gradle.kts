@@ -80,6 +80,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // Сеть (Retrofit & OkHttp) для работы с GitHub API и Cloudinary
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

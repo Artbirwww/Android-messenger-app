@@ -41,6 +41,15 @@ object AuthRepository {
         }
     }
 
+    suspend fun getFcmToken(uid: String): String? {
+        return try {
+            val doc = db.collection("users").document(uid).get().await()
+            doc.getString("fcmToken")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     suspend fun updateFcmToken(uid: String, token: String) {
         try {
             db.collection("users").document(uid).update("fcmToken", token).await()

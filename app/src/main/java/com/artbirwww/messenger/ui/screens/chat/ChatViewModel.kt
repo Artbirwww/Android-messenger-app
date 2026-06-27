@@ -95,6 +95,22 @@ class ChatViewModel : ViewModel() {
                 replyTo = reply
             )
             ChatRepository.sendMessage(currentChatId, msg)
+
+            // Direct PUSH Trigger (Client-Side)
+            launch {
+                val recipientToken = AuthRepository.getFcmToken(otherUserId)
+                if (!recipientToken.isNullOrEmpty()) {
+                    val senderProfile = AuthRepository.getUserProfile(currentUserId)
+                    val senderName = senderProfile?.name ?: "Новое сообщение"
+                    com.artbirwww.messenger.data.remote.FCMClient.sendPush(
+                        token = recipientToken,
+                        title = senderName,
+                        message = text.ifEmpty { "Вложение" },
+                        chatId = currentChatId
+                    )
+                }
+            }
+
             typedMessage.value = ""
             replyingTo.value = null
         }
