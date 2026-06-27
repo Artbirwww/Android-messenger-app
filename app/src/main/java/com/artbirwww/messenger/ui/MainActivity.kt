@@ -128,6 +128,18 @@ class MainActivity : ComponentActivity() {
         
         // Update FCM Token
         updateFcmToken()
+
+        // Start Background Service for free notifications (No Blaze needed)
+        startMessengerBackgroundService()
+    }
+    
+    private fun startMessengerBackgroundService() {
+        val intent = android.content.Intent(this, com.artbirwww.messenger.data.remote.MessengerBackgroundService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
     }
     
     private fun updateFcmToken() {
