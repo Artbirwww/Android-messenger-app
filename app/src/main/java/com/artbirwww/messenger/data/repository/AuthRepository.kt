@@ -50,6 +50,15 @@ object AuthRepository {
         }
     }
 
+    suspend fun updateUserProfile(user: User): Boolean {
+        return try {
+            db.collection("users").document(user.uid).set(user).await()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     suspend fun updateFcmToken(uid: String, token: String) {
         try {
             db.collection("users").document(uid).update("fcmToken", token).await()
