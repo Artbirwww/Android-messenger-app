@@ -44,6 +44,7 @@ class ChatViewModel : ViewModel() {
 
     fun loadMessages() {
         viewModelScope.launch {
+            ChatRepository.joinChat(currentChatId, currentUserId)
             ChatRepository.getMessages(currentChatId).collect {
                 _messages.value = it
             }

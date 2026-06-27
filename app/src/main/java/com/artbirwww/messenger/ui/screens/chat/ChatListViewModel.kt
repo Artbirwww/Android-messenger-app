@@ -7,6 +7,8 @@ import com.artbirwww.messenger.data.model.Chat
 import com.artbirwww.messenger.data.model.User
 import com.artbirwww.messenger.data.repository.AuthRepository
 import com.artbirwww.messenger.data.repository.ChatRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -28,8 +30,23 @@ class ChatListViewModel : ViewModel() {
 
     private fun loadChats() {
         viewModelScope.launch {
-            ChatRepository.getChats(currentUserId).collect {
-                _chats.value = it
+            ChatRepository.getChats(currentUserId).collect { baseChats ->
+                // Асинхронно обогащаем чаты информацией о пользователях
+                val enrichedChats = baseChats.map { chat ->
+                    async {
+                        if (chat.otherUserId.isNotEmpty()) {
+                            val user = AuthRepository.getUserProfile(chat.otherUserId)
+                            if (user != null) {
+                                chat.copy(
+                                    otherUserName = user.name.ifEmpty { user.email },
+                                    otherUserPhotoURL = user.photoURL,
+                                    otherUserEmail = user.email
+                                )
+                            } else chat
+                        } else chat
+                    }
+                }.awaitAll()
+                _chats.value = enrichedChats
             }
         }
     }

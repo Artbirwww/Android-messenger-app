@@ -37,7 +37,16 @@ object ChatRepository {
                     return@addSnapshotListener
                 }
                 val chats = snapshot?.documents?.mapNotNull { doc ->
-                    doc.toObject(Chat::class.java)?.copy(id = doc.id)
+                    val chat = doc.toObject(Chat::class.java)
+                    // Пытаемся найти ID собеседника:
+                    // 1. Из массива members
+                    // 2. Из массива participantIds
+                    // 3. Из ID документа (формат uid1_uid2)
+                    val otherId = chat?.members?.find { it != userId }
+                        ?: chat?.participantIds?.find { it != userId }
+                        ?: doc.id.split("_").find { it != userId }
+                        ?: ""
+                    chat?.copy(id = doc.id, otherUserId = otherId)
                 } ?: emptyList()
                 trySend(chats.sortedByDescending { it.lastMessageTime })
             }
@@ -52,16 +61,21 @@ object ChatRepository {
 
             // Update chat metadata in Firestore (unlike web which uses localStorage primarily,
             // we'll keep it in Firestore for better sync, while keeping the web's structure)
+            // Обновляем метаданные чата. 
+            // Используем arrayUnion, чтобы добавить ТОЛЬКО отправителя в список тех, у кого чат виден.
             db.collection("chats").document(chatId).set(
                 mapOf(
                     "lastMessage" to (message.text.ifEmpty { "Attachment" }),
                     "lastMessageTime" to message.timestamp,
                     "lastSenderId" to message.fromId,
-                    "participantIds" to listOf(message.fromId, message.toId),
-                    "messageCount" to com.google.firebase.firestore.FieldValue.increment(1),
+                    "members" to listOf(message.fromId, message.toId),
                     "updatedAt" to System.currentTimeMillis()
                 ),
                 com.google.firebase.firestore.SetOptions.merge()
+            ).await()
+
+            db.collection("chats").document(chatId).update(
+                "participantIds", com.google.firebase.firestore.FieldValue.arrayUnion(message.fromId)
             ).await()
         } catch (e: Exception) {
             Log.e("ChatRepository", "Send failed", e)
@@ -115,5 +129,15 @@ object ChatRepository {
 
     suspend fun saveChatBackground(chatId: String, background: ChatBackground?) {
         db.collection("chats").document(chatId).update("background", background).await()
+    }
+
+    suspend fun joinChat(chatId: String, userId: String) {
+        try {
+            db.collection("chats").document(chatId).update(
+                "participantIds", com.google.firebase.firestore.FieldValue.arrayUnion(userId)
+            ).await()
+        } catch (e: Exception) {
+            // Document might not exist yet, that's fine
+        }
     }
 }

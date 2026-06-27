@@ -2,6 +2,8 @@ package com.artbirwww.messenger.data.model
 
 data class Chat(
     val id: String = "",
+    val participantIds: List<String> = emptyList(), // Список тех, у кого чат в списке
+    val members: List<String> = emptyList(), // Все участники (всегда двое)
     val otherUserId: String = "",
     val otherUserEmail: String = "",
     val otherUserName: String = "",

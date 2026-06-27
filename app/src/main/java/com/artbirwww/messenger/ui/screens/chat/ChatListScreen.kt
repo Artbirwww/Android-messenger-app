@@ -85,10 +85,10 @@ fun ChatListScreen(
             LazyColumn(modifier = Modifier.weight(1f)) {
                 items(chatsState.value) { chat ->
                     ListItem(
-                        headlineContent = { Text(chat.otherUserName) },
+                        headlineContent = { Text(chat.otherUserName.ifEmpty { "Загрузка..." }) },
                         supportingContent = { 
                             Text(
-                                text = chat.lastMessage,
+                                text = chat.lastMessage.ifEmpty { "Нет сообщений" },
                                 maxLines = 1,
                                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                             ) 
@@ -106,7 +106,9 @@ fun ChatListScreen(
                             }
                         },
                         modifier = Modifier.clickable {
-                            onChatSelected(chat.id, chat.otherUserId, chat.otherUserName)
+                            if (chat.id.isNotEmpty() && chat.otherUserId.isNotEmpty()) {
+                                onChatSelected(chat.id, chat.otherUserId, chat.otherUserName)
+                            }
                         }
                     )
                 }
