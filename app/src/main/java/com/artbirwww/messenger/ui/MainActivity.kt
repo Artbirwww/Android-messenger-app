@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -24,17 +23,12 @@ import com.artbirwww.messenger.ui.screens.login.LoginScreen
 import com.artbirwww.messenger.ui.screens.profile.ProfileScreen
 import com.artbirwww.messenger.ui.screens.register.RegisterScreen
 import com.artbirwww.messenger.ui.theme.MessengerTheme
-import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 class MainActivity : ComponentActivity() {
     
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        // Permission handled
-    }
+    ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,7 +83,7 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("chat_list") {
                             ChatListScreen(
-                                onChatSelected = { chatId, otherUserId, otherUserName ->
+                                onChatSelected = { chatId, otherUserId, _ ->
                                     navController.navigate("chat/$chatId/$otherUserId")
                                 },
                                 onNavigateToRoute = navigateToTopLevel
@@ -97,7 +91,7 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("contacts") {
                             com.artbirwww.messenger.ui.screens.chat.ContactsScreen(
-                                onContactSelected = { chatId, otherUserId, otherUserName ->
+                                onContactSelected = { chatId, otherUserId, _ ->
                                     navController.navigate("chat/$chatId/$otherUserId")
                                 },
                                 onNavigateToRoute = navigateToTopLevel,
@@ -112,9 +106,9 @@ class MainActivity : ComponentActivity() {
                                 navArgument("chatId") { type = NavType.StringType },
                                 navArgument("otherUserId") { type = NavType.StringType }
                             )
-                        ) { backStackEntry ->
-                            val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
-                            val otherUserId = backStackEntry.arguments?.getString("otherUserId") ?: ""
+                        ) { entry ->
+                            val chatId = entry.arguments?.getString("chatId") ?: ""
+                            val otherUserId = entry.arguments?.getString("otherUserId") ?: ""
                             ChatScreen(
                                 chatId = chatId,
                                 otherUserId = otherUserId,

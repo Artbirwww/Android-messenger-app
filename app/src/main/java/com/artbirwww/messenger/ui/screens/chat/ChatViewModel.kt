@@ -144,7 +144,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendMessage(imageUrl: String? = null, fileUrl: String? = null, fileName: String? = null, fileType: String? = null, fileSize: Long? = null) {
         val text = typedMessage.value.trim()
-        if (text.isEmpty() && imageUrl == null && fileUrl == null) return
+        if (text.isEmpty() && (imageUrl == null) && (fileUrl == null)) return
 
         viewModelScope.launch {
             if (editingMessage.value != null) {

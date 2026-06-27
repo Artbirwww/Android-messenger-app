@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -38,7 +36,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import java.io.InputStream
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -48,29 +45,23 @@ fun ChatScreen(
     onBack: () -> Unit,
     viewModel: ChatViewModel = viewModel()
 ) {
-    // Initialize viewModel with parameters
     LaunchedEffect(chatId, otherUserId) {
         viewModel.currentChatId = chatId
         viewModel.otherUserId = otherUserId
         viewModel.loadMessages()
     }
 
-    val messagesState = viewModel.messages.collectAsState()
-    val searchQuery by viewModel.searchQuery.collectAsState()
+    val messagesState by viewModel.messages.collectAsState()
+    val searchQueryState by viewModel.searchQuery.collectAsState()
     val chatBackground by viewModel.chatBackground.collectAsState()
     var isSearchVisible by remember { mutableStateOf(false) }
     var showBgMenu by remember { mutableStateOf(false) }
     var showRecipientProfile by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
-        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
-        if (audioGranted && cameraGranted) {
-            // Permissions granted
-        }
-    }
+    ) { _ -> }
 
     LaunchedEffect(Unit) {
         permissionLauncher.launch(arrayOf(
@@ -85,7 +76,7 @@ fun ChatScreen(
         uri?.let {
             val inputStream: InputStream? = context.contentResolver.openInputStream(it)
             val bytes = inputStream?.readBytes()
-            val fileName = it.path?.substringAfterLast('/') ?: "file"
+            val fileName = it.lastPathSegment ?: "file"
             val fileType = context.contentResolver.getType(it) ?: "application/octet-stream"
             if (bytes != null) {
                 viewModel.uploadAndSendFile(bytes, fileName, fileType)
@@ -97,25 +88,24 @@ fun ChatScreen(
         topBar = {
             if (viewModel.selectionMode.value) {
                 TopAppBar(
-                    title = { Text("${viewModel.selectedMessages.value.size} выбрано") },
+                    title = { Text(text = "${viewModel.selectedMessages.value.size} выбрано") },
                     navigationIcon = {
                         IconButton(onClick = { viewModel.cancelEditOrReply() }) {
-                            Icon(Icons.Default.Close, contentDescription = "Cancel")
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Cancel")
                         }
                     },
                     actions = {
                         IconButton(onClick = { viewModel.deleteSelectedMessages() }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                            Icon(imageVector = Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 )
             } else if (isSearchVisible) {
                 TopAppBar(
                     title = {
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { viewModel.searchQuery.value = it },
-                            placeholder = { Text("Поиск в чате...") },
+                        TextField(
+                            value = searchQueryState,
+                            onValueChange = { newValue: String -> viewModel.searchQuery.value = newValue },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -172,19 +162,19 @@ fun ChatScreen(
                                 onDismissRequest = { showBgMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Светлый") },
+                                    text = { Text(text = "Светлый") },
                                     onClick = { viewModel.updateBackground("color", "#FFFFFF"); showBgMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Тёмный") },
+                                    text = { Text(text = "Тёмный") },
                                     onClick = { viewModel.updateBackground("color", "#1A1A1A"); showBgMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Мятный") },
+                                    text = { Text(text = "Мятный") },
                                     onClick = { viewModel.updateBackground("color", "#CCFBF1"); showBgMenu = false }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Персиковый") },
+                                    text = { Text(text = "Персиковый") },
                                     onClick = { viewModel.updateBackground("color", "#FFEDD5"); showBgMenu = false }
                                 )
                             }
@@ -200,27 +190,27 @@ fun ChatScreen(
         if (showRecipientProfile && viewModel.otherUser.value != null) {
             RecipientProfileDialog(
                 user = viewModel.otherUser.value!!,
-                messages = messagesState.value,
+                messages = messagesState,
                 onDismiss = { showRecipientProfile = false }
             )
+        }
+
+        val bgColor = when (chatBackground?.type) {
+            "color" -> {
+                try {
+                    Color(android.graphics.Color.parseColor(chatBackground?.value))
+                } catch (e: Exception) {
+                    MaterialTheme.colorScheme.background
+                }
+            }
+            else -> MaterialTheme.colorScheme.background
         }
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(
-                    when (chatBackground?.type) {
-                        "color" -> {
-                            try {
-                                androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(chatBackground?.value))
-                            } catch (e: Exception) {
-                                MaterialTheme.colorScheme.background
-                            }
-                        }
-                        else -> MaterialTheme.colorScheme.background
-                    }
-                )
+                .background(bgColor)
         ) {
             LazyColumn(
                 modifier = Modifier
@@ -228,7 +218,8 @@ fun ChatScreen(
                     .fillMaxWidth(),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(messagesState.value) { message ->
+                items(messagesState.size, key = { index: Int -> messagesState[index].id }) { index: Int ->
+                    val message = messagesState[index]
                     var showMenu by remember { mutableStateOf(false) }
                     val isSelected = viewModel.selectedMessages.value.contains(message.id)
 
@@ -248,7 +239,7 @@ fun ChatScreen(
                             MessageBubble(
                                 message = message,
                                 currentUserId = viewModel.currentUserId,
-                                highlightQuery = searchQuery,
+                                highlightQuery = searchQueryState,
                                 onLongClick = { 
                                     if (!viewModel.selectionMode.value) {
                                         showMenu = true 
@@ -266,39 +257,39 @@ fun ChatScreen(
                                 onDismissRequest = { showMenu = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Ответить") },
+                                    text = { Text(text = "Ответить") },
                                     onClick = {
                                         viewModel.replyingTo.value = message
                                         showMenu = false
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null) }
+                                    leadingIcon = { Icon(imageVector = Icons.Default.Share, contentDescription = null) }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Выбрать") },
+                                    text = { Text(text = "Выбрать") },
                                     onClick = {
                                         viewModel.selectionMode.value = true
                                         viewModel.toggleSelection(message.id)
                                         showMenu = false
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Check, contentDescription = null) }
+                                    leadingIcon = { Icon(imageVector = Icons.Default.Check, contentDescription = null) }
                                 )
                                 if (message.fromId == viewModel.currentUserId) {
                                     DropdownMenuItem(
-                                        text = { Text("Редактировать") },
+                                        text = { Text(text = "Редактировать") },
                                         onClick = {
                                             viewModel.startEditing(message)
                                             showMenu = false
                                         },
-                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                                        leadingIcon = { Icon(imageVector = Icons.Default.Edit, contentDescription = null) }
                                     )
                                 }
                                 DropdownMenuItem(
-                                    text = { Text("Удалить") },
+                                    text = { Text(text = "Удалить") },
                                     onClick = {
                                         viewModel.deleteMessage(message.id)
                                         showMenu = false
                                     },
-                                    leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
+                                    leadingIcon = { Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) }
                                 )
                             }
                         }
@@ -306,7 +297,6 @@ fun ChatScreen(
                 }
             }
 
-            // Reply/Edit Preview
             if (viewModel.replyingTo.value != null || viewModel.editingMessage.value != null) {
                 Row(
                     modifier = Modifier
@@ -329,12 +319,11 @@ fun ChatScreen(
                         )
                     }
                     IconButton(onClick = { viewModel.cancelEditOrReply() }) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel")
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Cancel")
                     }
                 }
             }
 
-            // Поле ввода теперь всегда прижато к низу списка
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -347,14 +336,14 @@ fun ChatScreen(
                 }
                 
                 IconButton(onClick = { viewModel.isRecordingVideo.value = true }) {
-                    Icon(imageVector = Icons.Default.RadioButtonChecked, contentDescription = "Video Message", tint = Color.Red)
+                    Icon(imageVector = Icons.Default.PlayArrow, contentDescription = "Video Message", tint = Color.Red)
                 }
 
                 OutlinedTextField(
                     value = viewModel.typedMessage.value,
-                    onValueChange = { viewModel.typedMessage.value = it },
+                    onValueChange = { newValue: String -> viewModel.typedMessage.value = newValue },
                     placeholder = { 
-                        Text(if (viewModel.isRecordingAudio.value) "Запись аудио..." else stringResource(id = R.string.send_hint)) 
+                        Text(text = if (viewModel.isRecordingAudio.value) "Запись аудио..." else stringResource(id = R.string.send_hint)) 
                     },
                     modifier = Modifier.weight(1f),
                     maxLines = 4,
@@ -371,7 +360,7 @@ fun ChatScreen(
                         }
                     }) {
                         Icon(
-                            imageVector = if (viewModel.isRecordingAudio.value) Icons.Default.Stop else Icons.Default.Mic,
+                            imageVector = if (viewModel.isRecordingAudio.value) Icons.Default.Close else Icons.Default.PlayArrow,
                             contentDescription = "Audio Message",
                             tint = if (viewModel.isRecordingAudio.value) Color.Red else MaterialTheme.colorScheme.primary
                         )
@@ -423,10 +412,10 @@ fun RecipientProfileDialog(
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 TopAppBar(
-                    title = { Text("Профиль пользователя") },
+                    title = { Text(text = "Профиль пользователя") },
                     navigationIcon = {
                         IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "Close")
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
                         }
                     }
                 )
@@ -451,7 +440,7 @@ fun RecipientProfileDialog(
                         Tab(
                             selected = activeTab == index,
                             onClick = { activeTab = index },
-                            text = { Text(title) }
+                            text = { Text(text = title) }
                         )
                     }
                 }
@@ -471,18 +460,21 @@ fun RecipientProfileDialog(
                             }
                         }
                         1 -> { // Images
-                            val images = messages.flatMap { it.imageUrls ?: emptyList() } + 
-                                         messages.mapNotNull { it.imageUrl }
+                            val images = (messages.flatMap { it.imageUrls ?: emptyList() } + 
+                                         messages.mapNotNull { it.imageUrl }).distinct()
                             
                             if (images.isEmpty()) {
-                                Text("Нет изображений", modifier = Modifier.align(Alignment.Center))
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(text = "Нет изображений")
+                                }
                             } else {
                                 LazyVerticalGrid(
                                     columns = GridCells.Fixed(3),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    items(images.distinct()) { url ->
+                                    items(images.size) { index: Int ->
+                                        val url = images[index]
                                         AsyncImage(
                                             model = url,
                                             contentDescription = null,
@@ -494,22 +486,25 @@ fun RecipientProfileDialog(
                             }
                         }
                         2 -> { // Files
-                            val files = messages.flatMap { it.files ?: emptyList() } +
+                            val files = (messages.flatMap { it.files ?: emptyList() } +
                                         messages.mapNotNull { msg -> 
                                             if (msg.fileUrl != null && msg.fileName != null) {
                                                 com.artbirwww.messenger.data.model.AttachmentFile(msg.fileUrl, msg.fileName, msg.fileType ?: "", msg.fileSize ?: 0)
                                             } else null
-                                        }
+                                        }).distinctBy { it.url }
                             
                             if (files.isEmpty()) {
-                                Text("Нет файлов", modifier = Modifier.align(Alignment.Center))
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(text = "Нет файлов")
+                                }
                             } else {
                                 LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    items(files.distinctBy { it.url }) { file ->
+                                    items(files.size) { index: Int ->
+                                        val file = files[index]
                                         ListItem(
-                                            headlineContent = { Text(file.name) },
-                                            supportingContent = { Text("${file.size / 1024} KB") },
-                                            leadingContent = { Text("📎", fontSize = 24.sp) }
+                                            headlineContent = { Text(text = file.name) },
+                                            supportingContent = { Text(text = "${file.size / 1024} KB") },
+                                            leadingContent = { Text(text = "📎", fontSize = 24.sp) }
                                         )
                                     }
                                 }
@@ -525,8 +520,7 @@ fun RecipientProfileDialog(
 @Composable
 fun ProfileInfoRow(label: String, value: String) {
     Column {
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-        Text(text = value, style = MaterialTheme.typography.bodyLarge)
-        Divider(modifier = Modifier.padding(top = 4.dp), thickness = 0.5.dp)
+        Text(text = label)
+        Text(text = value)
     }
 }

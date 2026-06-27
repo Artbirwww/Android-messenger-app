@@ -70,7 +70,7 @@ object GitHubService {
                 else -> "files/$userId/${timestamp}_${uniqueId}_$safeName"
             }
 
-            val response = api.uploadFile(
+            api.uploadFile(
                 owner = BuildConfig.GITHUB_OWNER,
                 repo = BuildConfig.GITHUB_REPO,
                 path = path,
